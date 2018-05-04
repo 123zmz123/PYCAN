@@ -31,6 +31,8 @@ class ControlCAN:
         self.receivenum = 0
         self.lasttime = 0
         self.timeinterval = 0
+
+        self.temperature = [0] * 16
         # TODO 添加两次数据接收的时间差数据，送入sql
 
     def opendevice(self):
@@ -84,19 +86,48 @@ class ControlCAN:
             pass
         elif respond > 0:
 
+            for i in range(respond):
+
+                temp=self.receivebuf[i].ID>>16
+
+                if temp == 0x0881:
+                    self.temperature[0] = (self.receivebuf[i].Data[0] * 256 + self.receivebuf[i].Data[1]) / 10
+                    self.temperature[1] = (self.receivebuf[i].Data[2] * 256 + self.receivebuf[i].Data[3]) / 10
+                    self.temperature[2] = (self.receivebuf[i].Data[4] * 256 + self.receivebuf[i].Data[5]) / 10
+                    self.temperature[3] = (self.receivebuf[i].Data[6] * 256 + self.receivebuf[i].Data[7]) / 10
+                if temp == 0x0885:
+                    self.temperature[4] = (self.receivebuf[i].Data[0] * 256 + self.receivebuf[i].Data[1]) / 10
+                    self.temperature[5] = (self.receivebuf[i].Data[2] * 256 + self.receivebuf[i].Data[3]) / 10
+                    self.temperature[6] = (self.receivebuf[i].Data[4] * 256 + self.receivebuf[i].Data[5]) / 10
+                    self.temperature[7] = (self.receivebuf[i].Data[6] * 256 + self.receivebuf[i].Data[7]) / 10
+                if temp == 0x0889:
+                    self.temperature[8] = (self.receivebuf[i].Data[0] * 256 + self.receivebuf[i].Data[1]) / 10
+                    self.temperature[9] = (self.receivebuf[i].Data[2] * 256 + self.receivebuf[i].Data[3]) / 10
+                    self.temperature[10] = (self.receivebuf[i].Data[4] * 256 + self.receivebuf[i].Data[5]) / 10
+                    self.temperature[11] = (self.receivebuf[i].Data[6] * 256 + self.receivebuf[i].Data[7]) / 10
+                if temp == 0x088d:
+                    self.temperature[12] = (self.receivebuf[i].Data[0] * 256 + self.receivebuf[i].Data[1]) / 10
+                    self.temperature[13] = (self.receivebuf[i].Data[2] * 256 + self.receivebuf[i].Data[3]) / 10
+                    self.temperature[14] = (self.receivebuf[i].Data[4] * 256 + self.receivebuf[i].Data[5]) / 10
+                    self.temperature[15] = (self.receivebuf[i].Data[6] * 256 + self.receivebuf[i].Data[7]) / 10
+
             if self.ctime != time.localtime():
                 self.ctime = time.localtime()
                 print(time.strftime("%Y-%m-%d %H:%M:%S", self.ctime), end=' ')
-                print(self.receivebuf[0])
+                print("%.1f %.1f %.1f %.1f %.1f %.1f %.1f %.1f %.1f %.1f %.1f %.1f %.1f %.1f %.1f %.1f" %
+                      (self.temperature[0], self.temperature[1], self.temperature[2], self.temperature[3],
+                      self.temperature[4], self.temperature[5], self.temperature[6], self.temperature[7],
+                      self.temperature[8], self.temperature[9], self.temperature[10], self.temperature[11],
+                      self.temperature[12], self.temperature[13], self.temperature[14], self.temperature[15]))
                 self.emptynum = 0
 
-                t1 = (self.receivebuf[0].Data[0] * 256 + self.receivebuf[0].Data[1]) / 10
-                t2 = (self.receivebuf[0].Data[2] * 256 + self.receivebuf[0].Data[3]) / 10
-                t3 = (self.receivebuf[0].Data[4] * 256 + self.receivebuf[0].Data[5]) / 10
-                t4 = (self.receivebuf[0].Data[6] * 256 + self.receivebuf[0].Data[7]) / 10
-
-                f=open('pytxt.txt','a')
-                word = "%s %.1f %.1f %.1f %.1f\n"%(time.strftime("%Y-%m-%d %H:%M:%S", self.ctime),t1,t2,t3,t4)
+                f = open('pytxt.txt', 'a')
+                word = "%s %.1f %.1f %.1f %.1f %.1f %.1f %.1f %.1f %.1f %.1f %.1f %.1f %.1f %.1f %.1f %.1f\n" % (
+                    time.strftime("%Y-%m-%d %H:%M:%S", self.ctime),
+                    self.temperature[0], self.temperature[1], self.temperature[2], self.temperature[3],
+                    self.temperature[4], self.temperature[5], self.temperature[6], self.temperature[7],
+                    self.temperature[8], self.temperature[9], self.temperature[10], self.temperature[11],
+                    self.temperature[12], self.temperature[13], self.temperature[14], self.temperature[15])
                 f.write(word)
                 f.close()
         self.receivenum = respond
