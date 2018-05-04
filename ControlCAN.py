@@ -1,13 +1,12 @@
 from CANstruct import *
 import time
-import pymysql
+import datetime
+import sys
 
 
 class ControlCAN:
 
-    def __init__(self, devtype=3, devindex=0, canindex=0, baudrate=250, acccode=0x00000000, accmask=0xFFFFFFFF,
-                 ip='localhost', username='root', password='fanxinyuan', schema='candata', rtable='originaldata',
-                 ttable='turedata', buffersize=100):
+    def __init__(self, devtype=3, devindex=0, canindex=0, baudrate=250, acccode=0x00000000, accmask=0xFFFFFFFF):
         time0 = {100: 0x04, 125: 0x03, 250: 0x01, 500: 0x00, 1000: 0x00}
         time1 = {100: 0x1C, 125: 0x1C, 250: 0x1C, 500: 0x1C, 1000: 0x14}
         pData = {100: 0x160023, 125: 0x1C0011, 250: 0x1C0008, 500: 0x060007, 1000: 0x060003}
@@ -29,78 +28,10 @@ class ControlCAN:
         self.sendbuf = VCI_CAN_OBJ()
         self.ctime = time.localtime()
         self.emptynum = 0
-
-        self.vlist = [0] * 16
-        self.tlist = [0] * 16
-
-        self.buffersize = buffersize
-        self.datanum = 0
-        self.schema = schema
-        self.rtable = rtable
-        self.ttable = ttable
-        self.db = pymysql.connect(ip, username, password, schema)
-        self.cursor = self.db.cursor()
-        print('连接数据库成功')
-
-    def createtable(self):
-        sql = "DROP TABLE IF EXISTS %s.%s" % (self.schema, self.rtable)
-        self.cursor.execute(sql)
-        sql = "CREATE TABLE `%s`.`%s` (\
-            `INDEX` INT UNSIGNED NOT NULL AUTO_INCREMENT,\
-            `RealTime` TIMESTAMP(6) NOT NULL,\
-            `ID` INT UNSIGNED NOT NULL DEFAULT 0,\
-            `TimeStamp` INT UNSIGNED NOT NULL DEFAULT 0,\
-            `DataLen` TINYINT(8) UNSIGNED NOT NULL DEFAULT 0,\
-            `Data0` TINYINT(8) UNSIGNED NOT NULL DEFAULT 0,\
-            `Data1` TINYINT(8) UNSIGNED NOT NULL DEFAULT 0,\
-            `Data2` TINYINT(8) UNSIGNED NOT NULL DEFAULT 0,\
-            `Data3` TINYINT(8) UNSIGNED NOT NULL DEFAULT 0,\
-            `Data4` TINYINT(8) UNSIGNED NOT NULL DEFAULT 0,\
-            `Data5` TINYINT(8) UNSIGNED NOT NULL DEFAULT 0,\
-            `Data6` TINYINT(8) UNSIGNED NOT NULL DEFAULT 0,\
-            `Data7` TINYINT(8) UNSIGNED NOT NULL DEFAULT 0,\
-            PRIMARY KEY (`INDEX`));" % (self.schema, self.rtable)
-        self.cursor.execute(sql)
-        sql = "DROP TABLE IF EXISTS %s.%s" % (self.schema, self.ttable)
-        self.cursor.execute(sql)
-        sql = "CREATE TABLE `%s`.`%s` (\
-            `INDEX` INT UNSIGNED NOT NULL AUTO_INCREMENT,\
-            `RealTime` TIMESTAMP(6) NOT NULL,\
-            `V1` FLOAT NOT NULL,\
-            `V2` FLOAT NOT NULL,\
-            `V3` FLOAT NOT NULL,\
-            `V4` FLOAT NOT NULL,\
-            `V5` FLOAT NOT NULL,\
-            `V6` FLOAT NOT NULL,\
-            `V7` FLOAT NOT NULL,\
-            `V8` FLOAT NOT NULL,\
-            `V9` FLOAT NOT NULL,\
-            `V10` FLOAT NOT NULL,\
-            `V11` FLOAT NOT NULL,\
-            `V12` FLOAT NOT NULL,\
-            `V13` FLOAT NOT NULL,\
-            `V14` FLOAT NOT NULL,\
-            `V15` FLOAT NOT NULL,\
-            `V16` FLOAT NOT NULL,\
-            `T1` FLOAT NOT NULL,\
-            `T2` FLOAT NOT NULL,\
-            `T3` FLOAT NOT NULL,\
-            `T4` FLOAT NOT NULL,\
-            `T5` FLOAT NOT NULL,\
-            `T6` FLOAT NOT NULL,\
-            `T7` FLOAT NOT NULL,\
-            `T8` FLOAT NOT NULL,\
-            `T9` FLOAT NOT NULL,\
-            `T10` FLOAT NOT NULL,\
-            `T11` FLOAT NOT NULL,\
-            `T12` FLOAT NOT NULL,\
-            `T13` FLOAT NOT NULL,\
-            `T14` FLOAT NOT NULL,\
-            `T15` FLOAT NOT NULL,\
-            `T16` FLOAT NOT NULL,\
-            PRIMARY KEY (`INDEX`));" % (self.schema, self.ttable)
-        self.cursor.execute(sql)
-        print('创建表格成功')
+        self.receivenum = 0
+        self.lasttime = 0
+        self.timeinterval = 0
+        # TODO 添加两次数据接收的时间差数据，送入sql
 
     def opendevice(self):
         respond = self.CANdll.VCI_OpenDevice(self.devtype, self.devindex, 0)
@@ -150,132 +81,25 @@ class ControlCAN:
             print('读取数据失败')
             self.CANdll.VCI_ReadErrInfo(self.devtype, self.devindex, self.canindex, byref(self.errinfo))
         elif respond == 0:
-            # if self.devtype == 3 or self.devtype == 4:
-            #     self.emptynum = self.emptynum + 1
-            #     temp = self.emptynum // 20
-            #     sys.stdout.write('\r' + "无新数据" + "." * temp)
-            #     sys.stdout.flush()
             pass
         elif respond > 0:
-            for i in range(respond):
-                sql = "INSERT INTO %s(ID,TimeStamp,DataLen,Data0,Data1,Data2,Data3,Data4,Data5,Data6,Data7)\
-                                                  VALUES('%d','%d','%d','%d','%d','%d','%d','%d','%d','%d','%d')" % \
-                      (self.rtable,
-                       self.receivebuf[i].ID,
-                       self.receivebuf[i].TimeStamp,
-                       self.receivebuf[i].DataLen,
-                       self.receivebuf[i].Data[0],
-                       self.receivebuf[i].Data[1],
-                       self.receivebuf[i].Data[2],
-                       self.receivebuf[i].Data[3],
-                       self.receivebuf[i].Data[4],
-                       self.receivebuf[i].Data[5],
-                       self.receivebuf[i].Data[6],
-                       self.receivebuf[i].Data[7])
-                self.cursor.execute(sql)
-
-                ID = self.receivebuf[i].ID >> 16
-                if ID == 0x841:
-                    self.vlist[0] = (self.receivebuf[i].Data[0] * 256 + self.receivebuf[i].Data[1]) / 10000
-                    self.vlist[1] = (self.receivebuf[i].Data[2] * 256 + self.receivebuf[i].Data[3]) / 10000
-                    self.vlist[2] = (self.receivebuf[i].Data[4] * 256 + self.receivebuf[i].Data[5]) / 10000
-                    self.vlist[3] = (self.receivebuf[i].Data[6] * 256 + self.receivebuf[i].Data[7]) / 10000
-                elif ID == 0x845:
-                    self.vlist[4] = (self.receivebuf[i].Data[0] * 256 + self.receivebuf[i].Data[1]) / 10000
-                    self.vlist[5] = (self.receivebuf[i].Data[2] * 256 + self.receivebuf[i].Data[3]) / 10000
-                    self.vlist[6] = (self.receivebuf[i].Data[4] * 256 + self.receivebuf[i].Data[5]) / 10000
-                    self.vlist[7] = (self.receivebuf[i].Data[6] * 256 + self.receivebuf[i].Data[7]) / 10000
-                elif ID == 0x849:
-                    self.vlist[8] = (self.receivebuf[i].Data[0] * 256 + self.receivebuf[i].Data[1]) / 10000
-                    self.vlist[9] = (self.receivebuf[i].Data[2] * 256 + self.receivebuf[i].Data[3]) / 10000
-                    self.vlist[10] = (self.receivebuf[i].Data[4] * 256 + self.receivebuf[i].Data[5]) / 10000
-                    self.vlist[11] = (self.receivebuf[i].Data[6] * 256 + self.receivebuf[i].Data[7]) / 10000
-                elif ID == 0x84d:
-                    self.vlist[12] = (self.receivebuf[i].Data[0] * 256 + self.receivebuf[i].Data[1]) / 10000
-                    self.vlist[13] = (self.receivebuf[i].Data[2] * 256 + self.receivebuf[i].Data[3]) / 10000
-                    self.vlist[14] = (self.receivebuf[i].Data[4] * 256 + self.receivebuf[i].Data[5]) / 10000
-                    self.vlist[15] = (self.receivebuf[i].Data[6] * 256 + self.receivebuf[i].Data[7]) / 10000
-
-                elif ID == 0x881:
-                    self.tlist[0] = (self.receivebuf[i].Data[0] * 256 + self.receivebuf[i].Data[1]) / 10
-                    self.tlist[1] = (self.receivebuf[i].Data[2] * 256 + self.receivebuf[i].Data[3]) / 10
-                    self.tlist[2] = (self.receivebuf[i].Data[4] * 256 + self.receivebuf[i].Data[5]) / 10
-                    self.tlist[3] = (self.receivebuf[i].Data[6] * 256 + self.receivebuf[i].Data[7]) / 10
-                elif ID == 0x885:
-                    self.tlist[4] = (self.receivebuf[i].Data[0] * 256 + self.receivebuf[i].Data[1]) / 10
-                    self.tlist[5] = (self.receivebuf[i].Data[2] * 256 + self.receivebuf[i].Data[3]) / 10
-                    self.tlist[6] = (self.receivebuf[i].Data[4] * 256 + self.receivebuf[i].Data[5]) / 10
-                    self.tlist[7] = (self.receivebuf[i].Data[6] * 256 + self.receivebuf[i].Data[7]) / 10
-                elif ID == 0x889:
-                    self.tlist[8] = (self.receivebuf[i].Data[0] * 256 + self.receivebuf[i].Data[1]) / 10
-                    self.tlist[9] = (self.receivebuf[i].Data[2] * 256 + self.receivebuf[i].Data[3]) / 10
-                    self.tlist[10] = (self.receivebuf[i].Data[4] * 256 + self.receivebuf[i].Data[5]) / 10
-                    self.tlist[11] = (self.receivebuf[i].Data[6] * 256 + self.receivebuf[i].Data[7]) / 10
-                elif ID == 0x88d:
-                    self.tlist[12] = (self.receivebuf[i].Data[0] * 256 + self.receivebuf[i].Data[1]) / 10
-                    self.tlist[13] = (self.receivebuf[i].Data[2] * 256 + self.receivebuf[i].Data[3]) / 10
-                    self.tlist[14] = (self.receivebuf[i].Data[4] * 256 + self.receivebuf[i].Data[5]) / 10
-                    self.tlist[15] = (self.receivebuf[i].Data[6] * 256 + self.receivebuf[i].Data[7]) / 10
-
-                    sql = "INSERT INTO %s(V1,V2,V3,V4,V5,V6,V7,V8,V9,V10,V11,V12,V13,V14,V15,V16,T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16)\
-                        VALUES('%f','%f','%f','%f','%f','%f','%f','%f','%f','%f','%f','%f','%f','%f','%f','%f','%f','%f','%f','%f','%f','%f','%f','%f','%f','%f','%f','%f','%f','%f','%f','%f')" % \
-                          (self.ttable,
-                           self.vlist[0],
-                           self.vlist[1],
-                           self.vlist[2],
-                           self.vlist[3],
-                           self.vlist[4],
-                           self.vlist[5],
-                           self.vlist[6],
-                           self.vlist[7],
-                           self.vlist[8],
-                           self.vlist[9],
-                           self.vlist[10],
-                           self.vlist[11],
-                           self.vlist[12],
-                           self.vlist[13],
-                           self.vlist[14],
-                           self.vlist[15],
-                           self.tlist[0],
-                           self.tlist[1],
-                           self.tlist[2],
-                           self.tlist[3],
-                           self.tlist[4],
-                           self.tlist[5],
-                           self.tlist[6],
-                           self.tlist[7],
-                           self.tlist[8],
-                           self.tlist[9],
-                           self.tlist[10],
-                           self.tlist[11],
-                           self.tlist[12],
-                           self.tlist[13],
-                           self.tlist[14],
-                           self.tlist[15],)
-                    self.cursor.execute(sql)
-
-            self.datanum = self.datanum + respond
-            if self.datanum > self.buffersize:
-                self.db.commit()
-                self.datanum = 0
 
             if self.ctime != time.localtime():
                 self.ctime = time.localtime()
-                print(time.strftime("%Y-%m-%d %H:%M:%S", self.ctime))
-                print(
-                    "| %.4f | %.4f | %.4f | %.4f | %.4f | %.4f | %.4f | %.4f | %.4f | %.4f | %.4f | %.4f | %.4f | %.4f | %.4f | %.4f |\n"
-                    "| %.2f | %.2f | %.2f | %.2f | %.2f | %.2f | %.2f | %.2f | %.2f | %.2f | %.2f | %.2f | %.2f | %.2f | %.2f | %.2f |" % (
-                        self.vlist[0], self.vlist[1], self.vlist[2], self.vlist[3], self.vlist[4], self.vlist[5],self.vlist[6],self.vlist[7], 
-                        self.vlist[8], self.vlist[9], self.vlist[10], self.vlist[11], self.vlist[12],self.vlist[13], self.vlist[14], self.vlist[15],
-                        self.tlist[0], self.tlist[1], self.tlist[2], self.tlist[3], self.tlist[4], self.tlist[5],self.tlist[6], self.tlist[7],
-                        self.tlist[8], self.tlist[9], self.tlist[10], self.tlist[11], self.tlist[12], self.tlist[13],self.tlist[14], self.tlist[15]))
+                print(time.strftime("%Y-%m-%d %H:%M:%S", self.ctime), end=' ')
+                print(self.receivebuf[0])
+                self.emptynum = 0
 
-            # f=open('pytxt.txt','a')
-            # word = "%s %d\n"%(time.strftime("%Y-%m-%d %H:%M:%S", self.ctime),self.receivebuf[0].TimeStamp)
-            # f.write(word)
-            # f.close()
+                t1 = (self.receivebuf[0].Data[0] * 256 + self.receivebuf[0].Data[1]) / 10
+                t2 = (self.receivebuf[0].Data[2] * 256 + self.receivebuf[0].Data[3]) / 10
+                t3 = (self.receivebuf[0].Data[4] * 256 + self.receivebuf[0].Data[5]) / 10
+                t4 = (self.receivebuf[0].Data[6] * 256 + self.receivebuf[0].Data[7]) / 10
 
-        return respond
+                f=open('pytxt.txt','a')
+                word = "%s %.1f %.1f %.1f %.1f\n"%(time.strftime("%Y-%m-%d %H:%M:%S", self.ctime),t1,t2,t3,t4)
+                f.write(word)
+                f.close()
+        self.receivenum = respond
 
     def transmit(self):
         respond = self.CANdll.VCI_Transmit(self.devtype, self.devindex, self.canindex, byref(self.sendbuf), 1)
@@ -306,7 +130,6 @@ class ControlCAN:
         return respond
 
     def __del__(self):
-        self.db.close()
         respond = self.CANdll.VCI_CloseDevice(self.devtype, self.devindex)
         if respond:
             print('关闭CAN卡成功')
