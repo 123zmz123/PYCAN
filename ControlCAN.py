@@ -1,6 +1,7 @@
 from CANstruct import *
 import time
 import datetime
+import csv
 import sys
 
 
@@ -87,14 +88,6 @@ class ControlCAN:
                 sys.stdout.write('\r' + "无新数据" + "." * temp)
                 sys.stdout.flush()
         elif respond > 0:
-            # now = datetime.datetime.now()
-            # interval = now - self.lasttime
-            # self.lasttime = now
-            # if interval > 1:
-            #     self.timeinterval = 0
-            # else:
-            #     self.timeinterval = interval
-
             if self.devtype == 21:
                 for i in range(respond):
                     for j in range(self.receivebuf[i].DataLen, 8):
@@ -106,10 +99,12 @@ class ControlCAN:
                 print(self.receivebuf[0])
                 self.emptynum = 0
 
-                # f=open('pytxt.txt','a')
-                # word = "%s %d\n"%(time.strftime("%Y-%m-%d %H:%M:%S", self.ctime),self.receivebuf[0].TimeStamp)
-                # f.write(word)
-                # f.close()
+                voltage = (self.receivebuf[0].Data[0] * 256 + self.receivebuf[0].Data[1]) / 10000
+                word = (time.strftime("%Y-%m-%d", self.ctime), time.strftime("%H:%M:%S", self.ctime), voltage)
+
+                with open('write.csv', 'a', newline='') as csv_file:
+                    csv_writer = csv.writer(csv_file)
+                    csv_writer.writerow(word)
         self.receivenum = respond
 
     def transmit(self):
