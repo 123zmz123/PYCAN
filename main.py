@@ -31,7 +31,7 @@ def main():
     while 1:
         if kbq(): break
         can.receive()
-        sql.copy(can.receivebuf, can.receivenum, can.timeinterval)
+        sql.copy(can.receivebuf, can.receivenum)
         sql.storage()
         sql.commit()
     del can

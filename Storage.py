@@ -45,29 +45,28 @@ class StorageToSQL:
         sql = "CREATE TABLE `%s`.`%s` (\
             `INDEX` INT UNSIGNED NOT NULL AUTO_INCREMENT,\
             `RealTime` TIMESTAMP(6) NOT NULL,\
-            `V0` FLOAT NOT NULL,\
-            `V1` FLOAT NOT NULL,\
-            `V2` FLOAT NOT NULL,\
-            `V3` FLOAT NOT NULL,\
-            `Ah` FLOAT NOT NULL,\
-            `Wh` FLOAT NOT NULL,\
+            `V0` FLOAT NOT NULL DEFAULT 0,\
+            `V1` FLOAT NOT NULL DEFAULT 0,\
+            `V2` FLOAT NOT NULL DEFAULT 0,\
+            `V3` FLOAT NOT NULL DEFAULT 0,\
+            `Ah` FLOAT NOT NULL DEFAULT 0,\
+            `Wh` FLOAT NOT NULL DEFAULT 0,\
             PRIMARY KEY (`INDEX`));" % (self.schema, self.ttable)
         self.cursor.execute(sql)
         print('创建表格成功')
 
-    def copy(self, obj, n, t):
+    def copy(self, obj, n):
         self.receivenum = n
         if self.receivenum:
             self.storagebuf = obj
-            self.timeinterval = t
 
     def storage(self):
         if self.receivenum:
-            integral = 0
-            for i in range(self.receivenum):
-                integral = integral + (self.receivebuf[i].Data[0] * 256 + self.receivebuf[i].Data[1]) / 10000
-            integral = integral * self.timeinterval / self.receivenum
-            self.ah = self.ah + integral / 3600
+            # integral = 0
+            # for i in range(self.receivenum):
+            #     integral = integral + (self.receivebuf[i].Data[0] * 256 + self.receivebuf[i].Data[1]) / 10000
+            # integral = integral * self.timeinterval / self.receivenum
+            # self.ah = self.ah + integral / 3600
 
             self.datanum = self.datanum + self.receivenum
             for i in range(self.receivenum):
@@ -86,13 +85,13 @@ class StorageToSQL:
                        self.storagebuf[i].Data[6],
                        self.storagebuf[i].Data[7])
                 self.cursor.execute(sql)
-                v0 = (self.receivebuf[i].Data[0] * 256 + self.receivebuf[i].Data[1]) / 10000
-                v1 = (self.receivebuf[i].Data[0] * 256 + self.receivebuf[i].Data[1]) / 10000
-                v2 = (self.receivebuf[i].Data[0] * 256 + self.receivebuf[i].Data[1]) / 10000
-                v3 = (self.receivebuf[i].Data[0] * 256 + self.receivebuf[i].Data[1]) / 10000
-                sql = "INSERT INTO %s(V0,V1,V2,V3,Ah)\
-                    VALUES('%f','%f','%f','%f','%f')" % \
-                      (self.ttable, v0, v1, v2, v3, self.ah)
+                v0 = (self.storagebuf[i].Data[0] * 256 + self.storagebuf[i].Data[1]) / 10000
+                # v1 = (self.receivebuf[i].Data[0] * 256 + self.receivebuf[i].Data[1]) / 10000
+                # v2 = (self.receivebuf[i].Data[0] * 256 + self.receivebuf[i].Data[1]) / 10000
+                # v3 = (self.receivebuf[i].Data[0] * 256 + self.receivebuf[i].Data[1]) / 10000
+                sql = "INSERT INTO %s(V0)\
+                    VALUES('%f')" % \
+                      (self.ttable, v0)
                 self.cursor.execute(sql)
 
     def commit(self):

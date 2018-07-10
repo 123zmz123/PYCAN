@@ -87,13 +87,13 @@ class ControlCAN:
                 sys.stdout.write('\r' + "无新数据" + "." * temp)
                 sys.stdout.flush()
         elif respond > 0:
-            now = datetime.datetime.now()
-            interval = (now - self.lasttime).total_seconds()
-            self.lasttime = now
-            if interval > 1:
-                self.timeinterval = 0
-            else:
-                self.timeinterval = interval
+            # now = datetime.datetime.now()
+            # interval = now - self.lasttime
+            # self.lasttime = now
+            # if interval > 1:
+            #     self.timeinterval = 0
+            # else:
+            #     self.timeinterval = interval
 
             if self.devtype == 21:
                 for i in range(respond):
