@@ -32,6 +32,10 @@ class ControlCAN:
         self.receivenum = 0
         self.lasttime = 0
         self.timeinterval = 0
+        self.add0 = 0
+        self.add1 = 0
+        self.count = 0
+        self.filename = time.strftime("%Y-%m-%d", time.localtime())
         # TODO 添加两次数据接收的时间差数据，送入sql
 
     def opendevice(self):
@@ -93,19 +97,34 @@ class ControlCAN:
                     for j in range(self.receivebuf[i].DataLen, 8):
                         self.receivebuf[i].Data[j] = 0
 
+            if self.ctime == time.localtime():
+                self.count = self.count + respond
+                for i in range(respond):
+                    self.add0 = self.add0 + (self.receivebuf[i].Data[0] * 256 + self.receivebuf[i].Data[1]) / 10000
+                    self.add1 = self.add1 + (self.receivebuf[i].Data[2] * 256 + self.receivebuf[i].Data[3]) / 10000
+
             if self.ctime != time.localtime():
                 self.ctime = time.localtime()
                 print(time.strftime("%Y-%m-%d %H:%M:%S", self.ctime), end=' ')
                 print(self.receivebuf[0])
                 self.emptynum = 0
 
-                voltage = (self.receivebuf[0].Data[0] * 256 + self.receivebuf[0].Data[1]) / 10000
-                word = (time.strftime("%Y-%m-%d", self.ctime), time.strftime("%H:%M:%S", self.ctime), voltage)
+                v1 = (self.receivebuf[0].Data[0] * 256 + self.receivebuf[0].Data[1]) / 10000
+                v2 = (self.receivebuf[0].Data[2] * 256 + self.receivebuf[0].Data[3]) / 10000
+                v3 = self.add0 / self.count
+                v4 = self.add1 / self.count
 
-                with open('write.csv', 'a', newline='') as csv_file:
+                self.add0 = self.add1 = self.count = 0
+                self.count = self.count + respond
+                for i in range(respond):
+                    self.add0 = self.add0 + (self.receivebuf[i].Data[0] * 256 + self.receivebuf[i].Data[1]) / 10000
+                    self.add1 = self.add1 + (self.receivebuf[i].Data[2] * 256 + self.receivebuf[i].Data[3]) / 10000
+
+                word = (time.strftime("%Y-%m-%d", self.ctime), time.strftime("%H:%M:%S", self.ctime), v1, v2, v3, v4)
+
+                with open(self.filename + '.csv', 'a', newline='') as csv_file:
                     csv_writer = csv.writer(csv_file)
                     csv_writer.writerow(word)
-        self.receivenum = respond
 
     def transmit(self):
         respond = self.CANdll.VCI_Transmit(self.devtype, self.devindex, self.canindex, byref(self.sendbuf), 1)

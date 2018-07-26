@@ -25,7 +25,6 @@ def main():
     del can
 
 
-
 def kbq():
     if msvcrt.kbhit():
         ret = ord(msvcrt.getch())
