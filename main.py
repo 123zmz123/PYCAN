@@ -1,6 +1,6 @@
-from ControlCAN import *
 import msvcrt
 import configparser
+from ControlCAN import *
 
 
 def main():

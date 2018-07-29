@@ -101,3 +101,4 @@ class StorageToSQL:
 
     def __del__(self):
         self.db.close()
+        
